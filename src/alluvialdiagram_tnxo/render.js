@@ -272,27 +272,51 @@ export function render(
     .attr('y', (d) => d.y0 + (d.y1 - d.y0) / 2)
     .attr('text-anchor', (d) => (d.x0 < width / 2 ? 'start' : 'end'))
 
+  // oneLine_threshold
+  const show_threshold = 1
+  const oneLine_threshold = 7
+
+  // Pre-compute and round percentages
+  const nodePercentages = nodesLabels.data().map(d => {
+    const percentage = (d.value / total_patients) * 100;
+    const roundedPercentage = percentage < 1 ? 1 : Math.round(percentage);
+    return {
+      ...d,
+      roundedPercentage
+    };
+  });
+  
   nodesLabels
+    .data(nodePercentages)  // Update the data binding
     .append('tspan')
     .attr('alignment-baseline', 'middle')
     .attr('x', (d) => (d.x0 < width / 2 ? d.x1 + 4 : d.x0 - 4))
-    .text((d) => d.name)
-    .styles(styles.labelPrimary)
+    .text((d) => {
+      if (showValues && d.roundedPercentage > show_threshold && d.roundedPercentage < oneLine_threshold) {
+        // Show name and percentage on the same line
+        return `${d.name} ${d.roundedPercentage}%`;
+      } else {
+        // Show name only, percentage will be added in a separate tspan if showValues is true
+        return d.name;
+      }
+    })
+    .styles(styles.labelPrimary);
 
   if (showValues) {
     nodesLabels
+      .data(nodePercentages)  // Update the data binding
+      .filter((d) => d.roundedPercentage > show_threshold && d.roundedPercentage >= oneLine_threshold)      
       .append('tspan')
       .attr('alignment-baseline', 'middle')
       .attr('x', (d) => (d.x0 < width / 2 ? d.x1 + 4 : d.x0 - 4))
-      .attr('dy', parseFloat(styles.labelPrimary.fontSize) + 2)
-      // .text((d) => `${d.value} patients`) // Add patients using backtips
-      .text((d) => {
-        const percentage = (d.value / total_patients) * 100;
-        return `${percentage < 1 ? 1 : Math.round(percentage)}%`;
-      })
+      .attr('dy', (d) => parseFloat(styles.labelPrimary.fontSize) + 2)
+      .text((d) => `${d.roundedPercentage}%`)
       .styles(styles.labelSecondary)
 
-    nodesLabels.attr(
+    // This part shift up the text only if the percentage is above show_threshold and oneLine_threshold
+    nodesLabels
+      .filter((d) => d.roundedPercentage > show_threshold && d.roundedPercentage > oneLine_threshold)
+      .attr(
       'transform',
       `translate(0,${-parseFloat(styles.labelSecondary.fontSize) / 2})`
     )
@@ -307,7 +331,7 @@ export function render(
     .data(firstNodes)
     .join('text')
     .attr('x', (d) => d.x0 + nodesWidth / 2)
-    .attr('y', (d) => d.y0 - 4)
+    .attr('y', (d) => d.y0 - 10)
     .attr('text-anchor', 'middle')
     .text((d) => d.step)
     .styles(styles.axisLabel)
